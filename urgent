@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <style>
+      table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Arial, sans-serif;
+            table-layout: fixed;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            height: 50px !important;
+            max-height: 50px !important;
+            min-height: 50px !important;
+            position: relative;
+        }
+
+        td.editable {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-y: auto;
+            padding: 5px;
+            line-height: 1.2;
+        }
+
+        td.editable:focus {
+            outline: 2px solid #007bff;
+            background-color: #fff;
+            height: auto;
+            max-height: 150px;
+            z-index: 1;
+            position: relative;
+        }
+
+        th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+#projectTable th:nth-child(1), 
+#projectTable td:nth-child(1) {
+    width: 60px !important;
+}
+
+#projectTable th:nth-child(2), 
+#projectTable td:nth-child(2) {
+    width: 90px !important;
+}
+
+#projectTable th:nth-child(7), 
+#projectTable td:nth-child(7) {
+    width: 100px !important;
+}
+
+#projectTable th:nth-child(8), 
+#projectTable td:nth-child(8) {
+    width: 260px !important;
+}
+
+
+#projectTable th:nth-child(9), 
+#projectTable td:nth-child(9) {
+    width: 120px !important;
+}
+
+    #projectTable td:nth-child(3),
+    #projectTable td:nth-child(4),
+    #projectTable td:nth-child(5),
+    #projectTable td:nth-child(6)
+    {
+        width: 150px !important;
+    }
+    
+
+    .editable {
+        overflow-wrap: break-word;
+        white-space: normal;
+        height: 50px !important;
+        max-height: 50px !important;
+        min-height: 50px !important;
+        cursor: text;
+        padding: 5px;
+        overflow-y: auto;
+    }
+
+.editable:focus {
+    outline: 2px solid #007bff;
+    background-color: #fff;
+}
+
+tr:nth-child(even) {
+    background-color: #f8f8f8;
+}
+
+.editable:hover {
+    background-color: #f0f0f0;
+}
+
+.add-btn, .delete-btn, .save-btn, .insert-btn {
+    font-weight: bold;
+    color: black;
+    padding: 10px 9px;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    margin: 2px;
+}
+
+.add-btn {
+    background-color: lightgreen;
+}
+
+.insert-btn {
+    background-color: #87CEEB;
+}
+
+.insert-btn:hover {
+    background-color: #4682B4;
+    color: white;
+}
+
+.add-btn:hover {
+    background-color: rgb(36, 46, 189);
+    color: #ddd;
+}
+
+.delete-btn {
+    background-color: lightcoral;
+}
+
+.delete-btn:hover {
+    background-color: #ff2147;
+    color: #fff;
+}
+
+.save-btn {
+    background-color: darksalmon;
+}
+
+.save-btn:hover {
+    background-color: #ff8c8c;
+    color: #fff;
+}
+
+#tableContainer {
+    height: 680px;
+    overflow-y: auto;
+}
+
+.cell-focus {
+    outline: 2px solid #007bff !important;
+    background-color: #f0f8ff !important;
+}
+        
+select {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    padding: 5px;
+    cursor: pointer;
+}
+
+td.cell-focus select {
+    outline: none;
+    background-color: #f0f8ff;
+}
+
+select:focus {
+    outline: 2px solid #007bff;
+}
+    </style>
+</head>
+
+<body>
+
+    <button class="add-btn" onclick="addRow()"> 
+        Add New Row ➕
+    </button>
+    <button class="insert-btn" onclick="insertRowAtSelected()">
+        Insert Sheet Row ⤵️
+    </button>
+    <button class="save-btn" onclick="saveAllRows()"> 
+        Saving... 💾
+    </button>
+    <button class="delete-btn" onclick="deleteAllRows()"> 
+        Delete All Rows ❌
+    </button>
+
+
+    <div id="tableContainer">
+        <table id="projectTable">
+            <thead>
+                <tr>
+                    <th>Sr. No</th>
+                    <th>Date</th>
+                    <th>Project Name</th>
+                    <th class="subject-cell">Subject</th>
+                    <th>Sent To</th>
+                    <th>Sent By</th>
+                    <th>Mode By</th>
+                    <th>Letter No</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyALwHPP263lThq0dpSgjzquqWcork4bOJ4",
+            authDomain: "connectdb1.firebaseapp.com",
+            projectId: "connectdb1",
+            storageBucket: "connectdb1.appspot.com",
+            messagingSenderId: "1578684614",
+            appId: "1:1578684614:web:e5766803dd0fc7ca9a87c7",
+            measurementId: "G-FV3VRFHQGV"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const projectsCollection = db.collection('projects');
+        let isLoading = false;
+
+        async function insertRowAtSelected() {
+            const selectedCell = document.querySelector('.cell-focus');
+            if (!selectedCell) {
+                alert('Please select a cell first');
+                return;
+            }
+
+            const currentRow = selectedCell.closest('tr');
+            const tbody = document.querySelector('#projectTable tbody');
+            const newRow = document.createElement('tr');
+            const rowId = Date.now().toString();
+            newRow.setAttribute('data-id', rowId);
+
+            const columns = 8;
+            for (let i = 0; i < columns; i++) {
+                const cell = document.createElement('td');
+                cell.className = 'editable';
+
+                switch (i) {
+                    case 0:
+                        cell.textContent = parseInt(currentRow.cells[0].textContent) + 1;
+                        cell.style.textAlign = 'center';
+                        cell.contentEditable = false;
+                        break;
+                    case 1:
+                        cell.textContent = getCurrentDate();
+                        cell.style.textAlign = 'center';
+                        cell.contentEditable = false;
+                        break;
+                    case 6:
+                        const select = createModeBySelect();
+                        cell.appendChild(select);
+                        cell.contentEditable = false;
+                        break;
+                    case 7:
+                        cell.textContent = getLetterNumber(parseInt(currentRow.cells[0].textContent) + 1);
+                        cell.contentEditable = false;
+                        break;
+                    default:
+                        cell.contentEditable = true;
+                }
+                newRow.appendChild(cell);
+            }
+
+            const deleteCell = document.createElement('td');
+            deleteCell.style.textAlign = 'center';
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete 🗑️';
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.onclick = async function() {
+                if (confirm('Are you sure you want to delete this row?')) {
+                    const rowId = newRow.getAttribute('data-id');
+                    await deleteRowFromFirebase(rowId);
+                    newRow.remove();
+                    updateRowNumbers();
+                }
+            };
+            deleteCell.appendChild(deleteBtn);
+            newRow.appendChild(deleteCell);
+
+            currentRow.insertAdjacentElement('afterend', newRow);
+            updateRowNumbers();
+            await saveRowToFirebase(newRow);
+            focusCell(newRow.cells[0]);
+        }
+
+        async function checkScroll() {
+            const container = document.getElementById('tableContainer');
+            if (container.scrollTop + container.clientHeight >= container.scrollHeight - 10 && !isLoading) {
+                isLoading = true;
+                await addInitialRows(15);
+                isLoading = false;
+            }
+        }
+
+        async function addInitialRows(count) {
+            for (let i = 0; i < count; i++) {
+                await addRow();
+            }
+        }
+
+        async function addRow(rowData = null) {
+            const tbody = document.querySelector('#projectTable tbody');
+            const newRow = document.createElement('tr');
+            const rowId = rowData ? rowData.id : Date.now().toString();
+            newRow.setAttribute('data-id', rowId);
+            const columns = 8;
+
+            for (let i = 0; i < columns; i++) {
+                const cell = document.createElement('td');
+                cell.className = 'editable';
+
+                switch (i) {
+                    case 0:
+                        cell.textContent = tbody.children.length + 1;
+                        cell.style.textAlign='center';
+                        cell.contentEditable = false;
+                        break;
+                    case 1:
+                        cell.textContent = rowData ? rowData.date : getCurrentDate();
+                        cell.style.textAlign='center'; 
+                        cell.contentEditable = false;
+                        break;
+                    case 6:
+                        const select = createModeBySelect();
+                        if (rowData) {
+                            select.value = rowData.modeBy;
+                        }
+                        cell.appendChild(select);
+                        cell.contentEditable = false;
+                        break;
+                    case 7:
+                        cell.textContent = rowData ? rowData.letterNo : getLetterNumber(tbody.children.length + 1);
+                        cell.contentEditable = false;
+                        break;
+                    case 3:
+                        cell.contentEditable = true;
+                        if (rowData) {
+                            cell.textContent = rowData.subject || '';
+                        }
+                        break;
+                    default:
+                        cell.contentEditable = true;
+                        if (rowData) {
+                            const fields = ['srNo', 'date', 'projectName', 'subject', 'sentTo', 'sentBy', 'modeBy', 'letterNo'];
+                            cell.textContent = rowData[fields[i]] || '';
+                        }
+                }
+                newRow.appendChild(cell);
+            }
+
+            const deleteCell = document.createElement('td');
+            deleteCell.style.textAlign='center';
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete 🗑️';
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.onclick = async function() {
+                if (confirm('Are you sure you want to delete this row?')) {
+                    const rowId = newRow.getAttribute('data-id');
+                    await deleteRowFromFirebase(rowId);
+                    newRow.remove();
+                    updateRowNumbers();
+                }
+            };
+            deleteCell.appendChild(deleteBtn);
+            newRow.appendChild(deleteCell);
+            tbody.appendChild(newRow);
+
+            if (!rowData) {
+                await saveRowToFirebase(newRow);
+            }
+            newRow.cells[0].focus();
+        }
+       
+        function updateRowNumbers() {
+            const tbody = document.querySelector('#projectTable tbody');
+            const rows = tbody.getElementsByTagName('tr');
+            
+            for (let i = 0; i < rows.length; i++) {
+                rows[i].cells[0].textContent = i + 1;
+                rows[i].cells[7].textContent = getLetterNumber(i + 1);
+            }
+        }
+
+        function createModeBySelect() {
+            const select = document.createElement('select');
+            const options = ['By Hand', 'By Email', 'By Courier'];
+            options.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option;
+                opt.textContent = option;
+                select.appendChild(opt);
+            });
+            return select;
+        }
+
+        async function saveRowToFirebase(row) {
+            const rowId = row.getAttribute('data-id');
+            const rowData = {
+                srNo: row.cells[0].textContent,
+                date: row.cells[1].textContent,
+                projectName: row.cells[2].textContent,
+                subject: row.cells[3].textContent,
+                sentTo: row.cells[4].textContent,
+                sentBy: row.cells[5].textContent,
+                modeBy: row.cells[6].querySelector('select').value,
+                letterNo: row.cells[7].textContent,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await projectsCollection.doc(rowId).set(rowData);
+            } catch (error) {
+                console.error("Error saving to Firebase:", error);
+                alert("Error saving data. Please try again.");
+            }
+        }
+
+        async function deleteRowFromFirebase(rowId) {
+            try {
+                await projectsCollection.doc(rowId).delete();
+            } catch (error) {
+                console.error("Error deleting from Firebase:", error);
+                alert("Error deleting data. Please try again.");
+            }
+        }
+
+        async function loadDataFromFirebase() {
+            try {
+                const snapshot = await projectsCollection.orderBy('timestamp').get();
+                const tableBody = document.querySelector('#projectTable tbody');
+                tableBody.innerHTML = '';
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    addRow({ id: doc.id, ...data });
+                });
+            } catch (error) {
+                console.error("Error loading data from Firebase:", error);
+                alert("Error loading data. Please refresh the page.");
+            }
+        }
+
+        async function deleteAllRows() {
+            const tbody = document.querySelector('#projectTable tbody');
+            const rows = Array.from(tbody.children);
+            const rowIds = rows.map(row => row.getAttribute('data-id'));
+
+            for (const rowId of rowIds) {
+                await deleteRowFromFirebase(rowId);
+            }
+
+            tbody.innerHTML = '';
+        }
+
+        function getCurrentDate() {
+            const date = new Date();
+            const dd = String(date.getDate()).padStart(2, '0');
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const yy = date.getFullYear().toString().slice(-2);
+            return `${dd}-${mm}-${y
